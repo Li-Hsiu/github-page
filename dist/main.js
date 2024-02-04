@@ -74,7 +74,9 @@ function animate() {
 function render() {
     //cube.rotation.x += 0.01; 
     //cube.rotation.y += 0.01;
-    loadedModel.scene.rotation.y += 0.005;
+    if (loadedModel) {
+        loadedModel.scene.rotation.y += 0.005;
+    }
     renderer.render(scene, camera);
 }
 function onWindowResize() {
