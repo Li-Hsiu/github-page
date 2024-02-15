@@ -25,22 +25,27 @@ function init() {
     document.body.appendChild(renderer.domElement);
     document.body.appendChild(VRButton.createButton(renderer));
 
-    const directionalLight = new THREE.AmbientLight(0xFFFFFF, 1.2);
-    //directionalLight.position.set(0, 5, 0);
+    const targetObject = new THREE.Object3D(); 
+    targetObject.position.set(0,0,20);
+    scene.add(targetObject);
+
+    const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.5);
+    directionalLight.position.set(10, 10, 10);
+    directionalLight.target = targetObject;
     scene.add(directionalLight);
     
-    /*const geometryCube = new THREE.BoxGeometry(2, 2, 2); 
-    const materialCube = new THREE.MeshPhongMaterial( { color: 0xFFC0CB } ); 
+    const geometryCube = new THREE.BoxGeometry(2, 2, 2); 
+    const materialCube = new THREE.MeshStandardMaterial( { color: 0xFFC0CB } ); 
     cube = new THREE.Mesh(geometryCube, materialCube); 
-    cube.position.set(0, 0, 20);
-    scene.add(cube);*/
+    cube.position.set(5, 5, 20);
+    scene.add(cube);
 
-    const geometryCube = new THREE.BoxGeometry(100, 1, 100); 
-    const materialCube = new THREE.MeshPhongMaterial( { color: 0xD7C8AC } ); 
-    floor = new THREE.Mesh(geometryCube, materialCube); 
+    const geometryFloor = new THREE.BoxGeometry(100, 1, 100); 
+    const materialFloor = new THREE.MeshStandardMaterial( { color: 0xD7C8AC } ); 
+    floor = new THREE.Mesh(geometryFloor, materialFloor); 
     floor.position.set(0, -1, 0);
     scene.add(floor);
-
+    
     const gltfLoader = new GLTFLoader();
     gltfLoader.load('./assets/sci_fi_base/scene.gltf', (gltfScene) => {
         gltfScene.scene.traverse(c => {
@@ -62,7 +67,7 @@ function init() {
         gltfScene.scene.scale.set(0.75, 0.75, 0.75);
         scene.add(gltfScene.scene);
     });
-
+    
     window.addEventListener('resize', onWindowResize);
 }
 
@@ -72,8 +77,8 @@ function animate() {
 }
 
 function render() {
-    //cube.rotation.x += 0.01; 
-    //cube.rotation.y += 0.01;
+    cube.rotation.x += 0.01; 
+    cube.rotation.y += 0.01;
     if (loadedModel) {
         loadedModel.scene.rotation.y += 0.005;
     }
@@ -82,6 +87,5 @@ function render() {
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize( window.innerWidth, window.innerHeight );
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
-
