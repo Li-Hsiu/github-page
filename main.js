@@ -1,91 +1,99 @@
-import * as THREE from 'three';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'; 
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-//import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
-let scene, camera, renderer, cube, floor, loadedModel;
-
-init();
-animate()
+var camera, scene, renderer, controls, ocean, loader, imageLoader, mainDirectionalLight, cubeMesh, skyBox;
 
 function init() {
-    scene = new THREE.Scene(); 
-    scene.background = new THREE.Color('skyblue');
-
-    camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100); 
-    camera.lookAt(0, 0, 5);
-    camera.position.set(0,1.6,0);
-
-    renderer = new THREE.WebGLRenderer();
-    renderer.setSize( window.innerWidth, window.innerHeight );
-    renderer.setPixelRatio(window.devicePixelRatio); 
-
-    renderer.xr.enabled = true;
-
+    // Initialize Renderer
+    renderer = new THREE.WebGLRenderer({webxr: true});
+    renderer.context.getExtension('OES_texture_float');
+    renderer.context.getExtension('OES_texture_float_linear');
+    renderer.setClearColor(0x000000);
     document.body.appendChild(renderer.domElement);
-    document.body.appendChild(VRButton.createButton(renderer));
 
-    const targetObject = new THREE.Object3D(); 
-    targetObject.position.set(0,0,20);
-    scene.add(targetObject);
+    // Initialize Scene
+    scene = new THREE.Scene();
 
-    const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1.5);
-    directionalLight.position.set(10, 10, 10);
-    directionalLight.target = targetObject;
-    scene.add(directionalLight);
+    // Initialize Camera
+    camera = new THREE.PerspectiveCamera(55.0, window.innerWidth / window.innerHeight, 0.5, 1000000);
+    camera.position.set(0, 350, 800);
+    camera.lookAt(new THREE.Vector3());
+    scene.add(camera);
+
+    // Initialize Orbit control
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.userPan = false;
+    controls.target.set(0, 300.0, 0);
+    controls.noKeys = true;
+    controls.userPanSpeed = 0;
+    controls.minDistance = 0;
+    controls.maxDistance = 20000.0;
+    controls.minPolarAngle = 0;
+    controls.maxPolarAngle = Math.PI * 0.75;
+
+    // Initialize Image Loader
+    loader = new THREE.LoadingManager();
+    imageLoader = new THREE.ImageLoader(loader);
     
-    const geometryCube = new THREE.BoxGeometry(2, 2, 2); 
-    const materialCube = new THREE.MeshStandardMaterial( { color: 0xFFC0CB } ); 
-    cube = new THREE.Mesh(geometryCube, materialCube); 
-    cube.position.set(5, 5, 20);
-    scene.add(cube);
+    // Initialize Main Directional Light
+    mainDirectionalLight = new THREE.DirectionalLight(new THREE.Color( 1, 0.95, 0.9 ), 1.5);
+    mainDirectionalLight.position.set( 0.2, 0.5, 1);
+    scene.add(mainDirectionalLight);
 
-    const geometryFloor = new THREE.BoxGeometry(100, 1, 100); 
-    const materialFloor = new THREE.MeshStandardMaterial( { color: 0xD7C8AC } ); 
-    floor = new THREE.Mesh(geometryFloor, materialFloor); 
-    floor.position.set(0, -1, 0);
-    scene.add(floor);
+    // Initialize Ocean
+    var gsize = 512;
+    var res = 512;
+    var gres = 256;
+    ocean = new THREE.Ocean(renderer, camera, scene,
+    {
+        INITIAL_SIZE : 200.0,
+        INITIAL_WIND : [ 10.0, 10.0 ],
+        INITIAL_CHOPPINESS : 3.6,
+        CLEAR_COLOR : [ 1.0, 1.0, 1.0, 0.0 ],
+        SUN_DIRECTION : mainDirectionalLight.position.clone(),
+        OCEAN_COLOR: new THREE.Vector3( 0.35, 0.4, 0.45 ),
+        SKY_COLOR: new THREE.Vector3( 10.0, 13.0, 15.0 ),
+        EXPOSURE : 0.15,
+        GEOMETRY_RESOLUTION: gres,
+        GEOMETRY_SIZE : gsize,
+        RESOLUTION : res
+    } );
     
-    const gltfLoader = new GLTFLoader();
-    gltfLoader.load('./assets/sci_fi_base/scene.gltf', (gltfScene) => {
-        gltfScene.scene.traverse(c => {
-            c.castShadow = true;
-        });
-        gltfScene.scene.rotation.y = Math.PI/2;
-        gltfScene.scene.position.set(0,0,20);
-        gltfScene.scene.scale.set(1, 1, 1);
-        scene.add(gltfScene.scene);
-    });
+    // Initialize Testing Cube
+    cubeMesh = new THREE.Mesh( new THREE.BoxGeometry( 200, 200, 200 ), new THREE.MeshPhongMaterial({ color: 'pink' }) );
+    cubeMesh.position.y = 200;
+    scene.add( cubeMesh );
 
-    gltfLoader.load('./assets/mushroom/scene.gltf', (gltfScene) => {
-        loadedModel = gltfScene;
-        gltfScene.scene.traverse(c => {
-            c.castShadow = true;
-        });
-        gltfScene.scene.rotation.y = Math.PI/2;
-        gltfScene.scene.position.set(0,-0.43,10);
-        gltfScene.scene.scale.set(0.75, 0.75, 0.75);
-        scene.add(gltfScene.scene);
-    });
-    
-    window.addEventListener('resize', onWindowResize);
+    // Initialize Sky
+    skyBoxInitialize(imageLoader,scene);
+
+    resize( window.innerWidth, window.innerHeight );
 }
 
-function animate() { 
-    //requestAnimationFrame(animate); 
-    renderer.setAnimationLoop(render); 
+function update() {
+    // Update camera position
+    if(camera.position.y < 0.0) {
+        camera.position.y = 2.0;
+    }
+    var currentTime = new Date().getTime();
+    ocean.deltaTime = (currentTime - lastTime) / 1000 || 0.0;
+    lastTime = currentTime;
+    
+    ocean.render();
+    ocean.update();
+    controls.update();
+    renderer.render(scene, camera);
 }
 
 function render() {
-    cube.rotation.x += 0.01; 
-    cube.rotation.y += 0.01;
-    if (loadedModel) {
-        loadedModel.scene.rotation.y += 0.005;
-    }
-    renderer.render(scene, camera);
-}
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+	requestAnimationFrame( render );
+	update();
+};
+
+function resize(inWidth, inHeight) {
+    camera.aspect = inWidth / inHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize( inWidth, inHeight );
 }
+
+var lastTime = new Date().getTime();
+init();
+
+render();
